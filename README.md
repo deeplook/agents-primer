@@ -1,11 +1,8 @@
 # Agents Primer
 
 [![CI](https://github.com/deeplook/agents-primer/actions/workflows/check.yml/badge.svg)](https://github.com/deeplook/agents-primer/actions/workflows/check.yml)
-[![PyPI](https://img.shields.io/pypi/v/agents-primer.svg)](https://pypi.org/project/agents-primer/)
-[![Python](https://img.shields.io/pypi/pyversions/agents-primer.svg)](https://pypi.org/project/agents-primer/)
-[![Downloads](https://img.shields.io/pypi/dm/agents-primer.svg)](https://pepy.tech/project/agents-primer)
-[![License](https://img.shields.io/pypi/l/agents-primer.svg)](https://pypi.org/project/agents-primer/)
-[![Docs](https://img.shields.io/badge/docs-deeplook.github.io%2Fagents--primer-blue)](https://deeplook.github.io/agents-primer)
+[![Downloads](https://img.shields.io/github/downloads/deeplook/agents-primer/total?label=Downloads&logo=github)](https://github.com/deeplook/agents-primer/releases)
+[![License](https://img.shields.io/github/license/deeplook/agents-primer?logo=github)](LICENSE)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://www.buymeacoffee.com/deeplook)
 
 Small Python lessons for designing bounded, observable agent workflows with the
