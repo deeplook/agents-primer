@@ -69,7 +69,7 @@ and the rejected or fallback path for each control-flow idea.
 | `40_lethal_trifecta.py` | Detect unsafe input/data/action combinations |
 | `41_sandbox_boundary.py` | Define a constrained code-execution boundary |
 
-Run `make check-all` for the offline quality gate. `make live-core` makes a
+Run `make check-all` for the offline quality gate: formatting, linting, strict typing, and tests. `make live-core` makes a
 small number of real SDK calls and uses API credits.
 
 ## Further reading

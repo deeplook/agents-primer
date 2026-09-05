@@ -1,6 +1,16 @@
 """Specify the narrow execution contract before allowing code to run."""
 
-SANDBOX = {
+from typing import Literal, TypedDict
+
+
+class SandboxConfig(TypedDict):
+    network: Literal["disabled"]
+    filesystem: Literal["temporary workspace only"]
+    timeout_seconds: int
+    allowed_commands: list[str]
+
+
+SANDBOX: SandboxConfig = {
     "network": "disabled",
     "filesystem": "temporary workspace only",
     "timeout_seconds": 10,
