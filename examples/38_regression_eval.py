@@ -1,29 +1,21 @@
-"""Run a tiny deterministic evaluation suite over workflow behavior."""
+"""Assert routing outcomes from SDK runs; --live evaluates actual model behavior."""
 
-from _workflow import classify_request, input_allowed, output_deliverable
+import asyncio
+
+from _evaluation import evaluate
 
 
-def main() -> None:
-    routing = [
-        ("Please refund my invoice", "billing"),
-        ("The app shows an error", "technical"),
-        ("What are your hours?", "general"),
+async def main() -> None:
+    records = await evaluate()
+    failures = [
+        f"{request}: expected {expected}, got {actual}"
+        for request, expected, actual, _ in records
+        if expected != actual
     ]
-    routing_passed = sum(
-        classify_request(request) == expected for request, expected in routing
-    )
-    guardrails_passed = sum(
-        [
-            input_allowed("Please reset my password."),
-            not input_allowed("Please delete account now."),
-            output_deliverable("Answer: Your refund is being reviewed."),
-            not output_deliverable("Answer: internal account 12 is past due."),
-        ]
-    )
-    print(
-        f"OK: routing={routing_passed}/{len(routing)} guardrails={guardrails_passed}/4"
-    )
+    if failures:
+        raise AssertionError("\n".join(failures))
+    print(f"OK: SDK routing regression={len(records)}/{len(records)}")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

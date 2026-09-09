@@ -1,39 +1,27 @@
-"""Route a request deterministically to one specialist agent."""
+"""Python selects an SDK agent deterministically; only that specialist runs."""
 
 import asyncio
 
-from _shared import MODEL, key_or_skip
+from _shared import demo_model, run_config
 from _workflow import classify_request
+from agents import Agent, Runner
+from agents.testing import assistant_message
 
 
 async def main() -> None:
-    if not key_or_skip():
-        return
-    from agents import Agent, Runner
-
-    billing = Agent(
-        name="Billing specialist",
-        instructions="Answer billing questions in one concise sentence.",
-        model=MODEL,
-    )
-    technical = Agent(
-        name="Technical specialist",
-        instructions="Answer technical questions in one concise sentence.",
-        model=MODEL,
-    )
-    general = Agent(
-        name="General specialist",
-        instructions="Answer general questions in one concise sentence.",
-        model=MODEL,
-    )
-    request = "My invoice needs a refund."
     specialists = {
-        "billing": billing,
-        "technical": technical,
-        "general": general,
+        name: Agent(
+            name=name,
+            instructions=f"Answer {name} questions briefly.",
+            model=demo_model([assistant_message(f"Assigned to {name} support.")]),
+        )
+        for name in ("billing", "technical", "general")
     }
+    request = "My invoice needs a refund."
     route = classify_request(request)
-    result = await Runner.run(specialists[route], request)
+    result = await Runner.run(
+        specialists[route], request, max_turns=3, run_config=run_config()
+    )
     print(f"OK: route={route} output={result.final_output}")
 
 

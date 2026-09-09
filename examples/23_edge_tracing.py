@@ -1,32 +1,47 @@
-"""Record graph edges so a workflow can be debugged after it runs."""
+"""SDK lifecycle hooks record handoffs; trace groups the entire workflow."""
 
-from _workflow import classify_request
+import asyncio
+from typing import Any
 
-
-def walk(request: str) -> list[tuple[str, str]]:
-    route = classify_request(request)
-    successors: dict[str, str | None] = {
-        "intake": "route",
-        "route": route,
-        "billing": "synthesize",
-        "technical": "synthesize",
-        "general": "synthesize",
-        "synthesize": None,
-    }
-    trace: list[tuple[str, str]] = []
-    node = "intake"
-    while successors[node]:
-        nxt = successors[node]
-        assert nxt is not None
-        trace.append((node, nxt))
-        node = nxt
-    return trace
+from _shared import demo_model, live, run_config
+from agents import Agent, RunContextWrapper, RunHooks, Runner, trace
+from agents.testing import assistant_message, function_call
 
 
-def main() -> None:
-    trace = walk("The app shows an error.")
-    print(f"OK: trace={trace}")
+class Edges(RunHooks[None]):
+    def __init__(self) -> None:
+        self.edges: list[tuple[str, str]] = []
+
+    async def on_handoff(
+        self,
+        context: RunContextWrapper[None],
+        from_agent: Agent[Any],
+        to_agent: Agent[Any],
+    ) -> None:
+        self.edges.append((from_agent.name, to_agent.name))
+
+
+async def main() -> None:
+    billing = Agent(
+        name="Billing", model=demo_model([assistant_message("Review requested.")])
+    )
+    triage = Agent(
+        name="Triage",
+        instructions="Transfer billing questions to Billing.",
+        handoffs=[billing],
+        model=demo_model([function_call("transfer_to_billing", {}, call_id="edge-1")]),
+    )
+    hooks = Edges()
+    with trace("support-triage", disabled=not live()):
+        await Runner.run(
+            triage,
+            "Refund my invoice.",
+            hooks=hooks,
+            run_config=run_config(),
+            max_turns=3,
+        )
+    print(f"OK: SDK handoff events={hooks.edges}")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

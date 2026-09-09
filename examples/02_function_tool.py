@@ -1,29 +1,38 @@
-"""Give an agent a typed Python function tool."""
+"""The SDK executes a typed function tool and returns its result to the model."""
 
 import asyncio
 
-from _shared import MODEL, key_or_skip
+from _shared import demo_model, run_config
+from agents import Agent, Runner, function_tool
+from agents.testing import assistant_message, function_call
+
+
+@function_tool
+def lookup_priority(customer: str) -> str:
+    """Return a customer's support priority."""
+    return {"Ada": "high", "Bea": "normal"}.get(customer, "normal")
 
 
 async def main() -> None:
-    if not key_or_skip():
-        return
-    from agents import Agent, Runner, function_tool
-
-    # @function_tool turns this typed Python function into a tool the agent can call.
-    @function_tool
-    def lookup_priority(customer: str) -> str:
-        """Return the support priority for a customer."""
-        return {"Ada": "high", "Bea": "normal"}.get(customer, "normal")
-
     agent = Agent(
-        name="Support triage",
-        instructions="Use lookup_priority when a customer is named.",
-        model=MODEL,
+        name="Triage",
+        instructions="Look up Ada's priority, then answer.",
         tools=[lookup_priority],
+        model=demo_model(
+            [
+                function_call(
+                    "lookup_priority", {"customer": "Ada"}, call_id="priority-1"
+                )
+            ],
+            [assistant_message("Ada has high priority.")],
+        ),
     )
-    result = await Runner.run(agent, "What priority should Ada receive?")
-    print("OK:", result.final_output)
+    result = await Runner.run(
+        agent, "What priority should Ada receive?", max_turns=3, run_config=run_config()
+    )
+    print(
+        "OK:", result.final_output, "items=", [item.type for item in result.new_items]
+    )
 
 
 if __name__ == "__main__":

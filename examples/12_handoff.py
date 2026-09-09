@@ -1,29 +1,30 @@
-"""Let a triage agent hand a task to a specialist that takes control."""
+"""An SDK handoff transfers ownership of the final reply to a specialist."""
 
 import asyncio
 
-from _shared import MODEL, key_or_skip
+from _shared import demo_model, run_config
+from agents import Agent, Runner
+from agents.testing import assistant_message, function_call
 
 
 async def main() -> None:
-    if not key_or_skip():
-        return
-    from agents import Agent, Runner
-
     billing = Agent(
-        name="Billing specialist",
-        handoff_description="Handles invoices and refunds.",
-        instructions="Answer billing questions in one sentence.",
-        model=MODEL,
+        name="Billing",
+        instructions="Answer billing questions briefly.",
+        model=demo_model([assistant_message("I can help review your refund.")]),
     )
     triage = Agent(
         name="Triage",
-        instructions="Hand billing questions to the Billing specialist.",
-        model=MODEL,
+        instructions="Hand billing requests to Billing.",
         handoffs=[billing],
+        model=demo_model(
+            [function_call("transfer_to_billing", {}, call_id="handoff-1")]
+        ),
     )
-    result = await Runner.run(triage, "I need a refund for my invoice.")
-    print(f"OK: agent={result.last_agent.name} output={result.final_output}")
+    result = await Runner.run(
+        triage, "I need a refund.", max_turns=3, run_config=run_config()
+    )
+    print(f"OK: owner={result.last_agent.name} output={result.final_output}")
 
 
 if __name__ == "__main__":

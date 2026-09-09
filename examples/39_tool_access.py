@@ -1,22 +1,36 @@
-"""Expose only the tools a graph node needs for its assigned responsibility."""
+"""SDK tool exposure is per agent; a hidden tool cannot execute even if requested."""
 
-from _workflow import tool_allowed
+import asyncio
 
-
-def invoke(agent: str, tool: str) -> str:
-    if not tool_allowed(agent, tool):
-        return f"denied:{agent}:{tool}"
-    return f"allowed:{agent}:{tool}"
+from _shared import demo_model, live, run_config
+from agents import Agent, ModelBehaviorError, Runner, function_tool
+from agents.testing import assistant_message, function_call
 
 
-def main() -> None:
-    print(
-        "OK: "
-        f"research_search={invoke('research_agent', 'search_documents')} "
-        f"research_refund={invoke('research_agent', 'request_refund_approval')} "
-        f"refund_approval={invoke('refund_agent', 'request_refund_approval')}"
+@function_tool
+def search_documents() -> str:
+    """Read public policy."""
+    return "Duplicates qualify for review."
+
+
+async def main() -> None:
+    agent = Agent(
+        name="Research",
+        instructions="Read policy. You cannot issue refunds.",
+        tools=[search_documents],
+        model=demo_model([function_call("issue_refund", {}, call_id="overreach-1")]),
     )
+    # Offline deliberately fabricates an unavailable tool call to test enforcement.
+    if live():
+        agent.model = demo_model([assistant_message("No refund capability.")])
+    try:
+        result = await Runner.run(
+            agent, "Issue a refund.", max_turns=3, run_config=run_config()
+        )
+        print("OK: only search_documents exposed:", result.final_output)
+    except ModelBehaviorError:
+        print("OK: SDK rejected an unknown tool; no refund tool exists on this agent")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

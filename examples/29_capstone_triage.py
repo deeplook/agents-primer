@@ -1,36 +1,81 @@
-"""Run a small bounded support-triage graph end to end without a model call."""
+"""Compose SDK input guardrails, specialist handoff, and tool approval/resumption."""
 
-from _workflow import (
-    WorkflowState,
-    classify_request,
-    input_allowed,
-    output_deliverable,
+import asyncio
+from typing import Any
+
+from _shared import demo_model, run_config
+from agents import (
+    Agent,
+    GuardrailFunctionOutput,
+    InputGuardrailTripwireTriggered,
+    RunContextWrapper,
+    Runner,
+    TResponseInputItem,
+    function_tool,
+    input_guardrail,
 )
+from agents.testing import assistant_message, function_call
 
 
-def handle(request: str) -> str:
-    if not input_allowed(request):
+@input_guardrail(run_in_parallel=False)
+def scope(
+    ctx: RunContextWrapper[None],
+    agent: Agent[Any],
+    input: str | list[TResponseInputItem],
+) -> GuardrailFunctionOutput:
+    return GuardrailFunctionOutput(
+        output_info="support only",
+        tripwire_triggered=not isinstance(input, str)
+        or "delete account" in input.lower(),
+    )
+
+
+async def handle(request: str, approved: bool = False) -> str:
+    effects: list[str] = []
+
+    @function_tool(needs_approval=True)
+    def queue_refund() -> str:
+        """Record a simulated refund review."""
+        effects.append("queued")
+        return "Review queued."
+
+    billing = Agent(
+        name="Billing",
+        instructions="Call queue_refund then report the outcome.",
+        tools=[queue_refund],
+        model=demo_model(
+            [function_call("queue_refund", {}, call_id="queue-1")],
+            [assistant_message("Review decision processed.")],
+        ),
+    )
+    triage = Agent(
+        name="Triage",
+        instructions="Transfer refund requests to Billing.",
+        input_guardrails=[scope],
+        handoffs=[billing],
+        model=demo_model([function_call("transfer_to_billing", {}, call_id="route-1")]),
+    )
+    try:
+        result = await Runner.run(triage, request, max_turns=4, run_config=run_config())
+    except InputGuardrailTripwireTriggered:
         return "rejected:input"
-    state = WorkflowState(request=request)
-    state.route = classify_request(state.request)
-    if state.route == "billing":
-        state.notes.append("paused for refund approval")
-        return "paused:refund_approval"
-    reply = f"Answer: assigned {state.route} support."
-    if not output_deliverable(reply):
-        return "rejected:output"
-    state.notes.extend([f"assigned {state.route}", "synthesized reply"])
-    return f"resolved:{state.route}"
+    if not result.interruptions:
+        raise RuntimeError("expected specialist approval request")
+    state = result.to_state()
+    for item in result.interruptions:
+        state.approve(item) if approved else state.reject(item)
+    result = await Runner.run(triage, state, run_config=run_config())
+    return f"owner={result.last_agent.name} approved={approved} effects={len(effects)}"
 
 
-def main() -> None:
-    outcomes = [
-        handle("The app shows an error after sign-in."),
-        handle("Please delete account immediately."),
-        handle("My invoice needs a refund."),
-    ]
-    print(f"OK: outcomes={outcomes}")
+async def main() -> None:
+    for request, approved in [
+        ("Please delete account.", False),
+        ("Review my refund.", False),
+        ("Review my refund.", True),
+    ]:
+        print("OK:", await handle(request, approved))
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

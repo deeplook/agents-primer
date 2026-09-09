@@ -1,28 +1,58 @@
-"""Block the risky combination of untrusted input, sensitive data, and action."""
+"""An SDK tool guardrail blocks external action when context marks risky data access.
 
-from _workflow import is_lethal_trifecta
+This teaching policy assumes trusted application labels; it is not an injection detector.
+"""
+
+import asyncio
+
+from _shared import demo_model, run_config
+from agents import Agent, Runner, function_tool
+from agents.testing import assistant_message, function_call
+from agents.tool_guardrails import (
+    ToolGuardrailFunctionOutput,
+    ToolInputGuardrailData,
+    tool_input_guardrail,
+)
 
 
-def main() -> None:
-    blocked = is_lethal_trifecta(
-        untrusted_input=True, sensitive_data=True, external_action=True
+@tool_input_guardrail
+def boundary(data: ToolInputGuardrailData) -> ToolGuardrailFunctionOutput:
+    flags = data.context.context
+    if flags["untrusted_input"] and flags["sensitive_data"]:
+        return ToolGuardrailFunctionOutput.reject_content(
+            "External action blocked; request human review."
+        )
+    return ToolGuardrailFunctionOutput.allow()
+
+
+async def main() -> None:
+    effects: list[str] = []
+
+    @function_tool(tool_input_guardrails=[boundary])
+    def send_message() -> str:
+        """Record a simulated outgoing message."""
+        effects.append("sent")
+        return "Simulated message sent."
+
+    agent = Agent(
+        name="Assistant",
+        instructions="Call send_message and respect any rejection.",
+        tools=[send_message],
+        model=demo_model(
+            [function_call("send_message", {}, call_id="send-1")],
+            [assistant_message("External action blocked; human review needed.")],
+        ),
     )
-    read_only = is_lethal_trifecta(
-        untrusted_input=True, sensitive_data=True, external_action=False
+    result = await Runner.run(
+        agent,
+        "Send the document.",
+        context={"untrusted_input": True, "sensitive_data": True},
+        max_turns=3,
+        run_config=run_config(),
     )
-    no_secrets = is_lethal_trifecta(
-        untrusted_input=True, sensitive_data=False, external_action=True
-    )
-    trusted = is_lethal_trifecta(
-        untrusted_input=False, sensitive_data=True, external_action=True
-    )
-    print(
-        f"OK: all_three_blocked={blocked} "
-        f"read_only_allowed={not read_only} "
-        f"no_secrets_allowed={not no_secrets} "
-        f"trusted_allowed={not trusted}"
-    )
+    assert not effects
+    print(f"OK: effects={effects} output={result.final_output}")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
