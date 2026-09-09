@@ -3,11 +3,11 @@
 
 def main() -> None:
     matrix = {
-        "wrong route": "test_router_selects_specialists",
-        "unbounded loop": "test_bounded_loop_stops_and_rejects_overrun",
-        "tool overreach": "test_privileged_tool_requires_approval",
-        "unsafe input": "test_input_guardrail_rejects_unsafe_and_overlong",
-        "internal leak": "test_output_guardrail_blocks_internal_leak",
+        "wrong route": "test_sdk_routing_eval",
+        "unbounded loop": "test_sdk_turn_limit",
+        "tool overreach": "test_sdk_rejects_unknown_tool",
+        "unsafe input": "test_sdk_input_guardrail_prevents_model_call",
+        "internal leak": "test_sdk_output_guardrail",
     }
     print(f"OK: checks={matrix}")
 

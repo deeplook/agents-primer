@@ -1,11 +1,11 @@
 [project]
 name = "agents-primer"
-version = "0.1.0"
+version = "0.2.0"
 description = "Small executable lessons for workflow-oriented agents with the OpenAI Agents SDK"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
-dependencies = ["openai-agents>=0.7"]
+dependencies = ["openai-agents>=0.22", "mcp>=2"]
 
 [dependency-groups]
 dev = ["mypy>=1.0", "pytest>=8", "ruff>=0.11"]

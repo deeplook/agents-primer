@@ -1,32 +1,41 @@
-"""Use a specialist as a tool when the manager must retain control."""
+"""Agent.as_tool delegates a bounded job while the manager retains the reply."""
 
 import asyncio
 
-from _shared import MODEL, key_or_skip
+from _shared import demo_model, run_config
+from agents import Agent, Runner
+from agents.testing import assistant_message, function_call
 
 
 async def main() -> None:
-    if not key_or_skip():
-        return
-    from agents import Agent, Runner
-
     specialist = Agent(
-        name="Policy reader",
-        instructions="Answer only the policy question you receive.",
-        model=MODEL,
+        name="Policy",
+        instructions="Duplicate charges qualify for review.",
+        model=demo_model([assistant_message("Duplicate charges qualify for review.")]),
     )
     manager = Agent(
-        name="Support manager",
-        instructions="Use the policy reader, then give the final customer response.",
-        model=MODEL,
+        name="Manager",
+        instructions="Consult read_policy, then answer.",
         tools=[
             specialist.as_tool(
-                tool_name="read_policy", tool_description="Read policy guidance."
+                tool_name="read_policy", tool_description="Ask a policy question."
             )
         ],
+        model=demo_model(
+            [
+                function_call(
+                    "read_policy",
+                    {"input": "Are duplicates eligible?"},
+                    call_id="policy-1",
+                )
+            ],
+            [assistant_message("Your duplicate charge qualifies for review.")],
+        ),
     )
-    result = await Runner.run(manager, "Can a customer cancel a subscription?")
-    print("OK:", result.final_output)
+    result = await Runner.run(
+        manager, "Can I request a refund?", max_turns=3, run_config=run_config()
+    )
+    print(f"OK: owner={result.last_agent.name} output={result.final_output}")
 
 
 if __name__ == "__main__":

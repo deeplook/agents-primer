@@ -1,24 +1,23 @@
-"""Keep graph topology as data so it can be inspected before running."""
+"""Inspect SDK handoffs as graph edges before running any model."""
 
-
-def dangling(graph: dict[str, list[str]]) -> list[str]:
-    return [dst for edges in graph.values() for dst in edges if dst not in graph]
+from _shared import demo_model
+from agents import Agent, Handoff
 
 
 def main() -> None:
+    billing = Agent(name="Billing", model=demo_model())
+    technical = Agent(name="Technical", model=demo_model())
+    triage = Agent(name="Triage", model=demo_model(), handoffs=[billing, technical])
+    agents = [triage, billing, technical]
     graph = {
-        "intake": ["route"],
-        "route": ["billing", "technical", "general"],
-        "billing": ["synthesize"],
-        "technical": ["synthesize"],
-        "general": ["synthesize"],
-        "synthesize": [],
+        agent.name: [
+            edge.agent_name if isinstance(edge, Handoff) else edge.name
+            for edge in agent.handoffs
+        ]
+        for agent in agents
     }
-    broken = {**graph, "billing": ["missing_node"]}
-    print(
-        f"OK: nodes={len(graph)} route_edges={graph['route']} "
-        f"valid_dangling={dangling(graph)} invalid_dangling={dangling(broken)}"
-    )
+    assert all(target in graph for edges in graph.values() for target in edges)
+    print(f"OK: SDK handoff graph={graph}")
 
 
 if __name__ == "__main__":

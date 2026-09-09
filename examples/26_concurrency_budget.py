@@ -1,7 +1,11 @@
-"""Bound concurrent graph nodes so parallelism cannot exhaust a dependency."""
+"""A semaphore bounds concurrent SDK runs; finally releases in-flight accounting."""
 
 import asyncio
 from dataclasses import dataclass
+
+from _shared import demo_model, run_config
+from agents import Agent, Runner
+from agents.testing import assistant_message
 
 
 @dataclass
@@ -14,19 +18,28 @@ async def inspect(name: str, semaphore: asyncio.Semaphore, inflight: Inflight) -
     async with semaphore:
         inflight.current += 1
         inflight.peak = max(inflight.peak, inflight.current)
-        await asyncio.sleep(0)
-        inflight.current -= 1
-        return f"{name}: done"
+        try:
+            agent = Agent(
+                name=name,
+                instructions="Return one brief finding.",
+                model=demo_model([assistant_message(f"{name}: checked")]),
+            )
+            result = await Runner.run(
+                agent, "Inspect order 42.", max_turns=3, run_config=run_config()
+            )
+            return str(result.final_output)
+        finally:
+            inflight.current -= 1
 
 
 async def main() -> None:
-    limit = 2
+    limit, inflight = 2, Inflight()
     semaphore = asyncio.Semaphore(limit)
-    inflight = Inflight()
     results = await asyncio.gather(
         *(inspect(str(i), semaphore, inflight) for i in range(4))
     )
-    print(f"OK: results={list(results)} peak_inflight={inflight.peak} limit={limit}")
+    assert inflight.peak <= limit and inflight.current == 0
+    print(f"OK: results={results} peak_inflight={inflight.peak} limit={limit}")
 
 
 if __name__ == "__main__":

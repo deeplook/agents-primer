@@ -1,19 +1,42 @@
-"""Fan in independent outputs through one deterministic merge node."""
+"""Merge typed SDK results in Python; the merge policy decides whether to escalate."""
+
+import asyncio
+
+from _shared import demo_model, run_config
+from agents import Agent, Runner
+from agents.testing import assistant_message
+from pydantic import BaseModel
 
 
-def merge(findings: list[str]) -> dict[str, str]:
-    blocked = [item for item in findings if "timeout" in item or "error" in item]
-    return {
-        "combined": "; ".join(sorted(findings)),
-        "decision": "escalate" if blocked else "continue",
-    }
+class Finding(BaseModel):
+    source: str
+    blocked: bool
+    evidence: str
 
 
-def main() -> None:
-    healthy = merge(["logs: ok", "status: healthy", "billing: clear"])
-    degraded = merge(["logs: timeout", "status: healthy", "billing: clear"])
-    print(f"OK: healthy={healthy['decision']} degraded={degraded['decision']}")
+async def main() -> None:
+    findings = []
+    for source, blocked in [("ledger", False), ("policy", True)]:
+        fixture = Finding(
+            source=source,
+            blocked=blocked,
+            evidence="Policy service unavailable."
+            if blocked
+            else "Duplicate verified.",
+        )
+        agent = Agent(
+            name=source,
+            instructions="Report the supplied evidence; mark missing evidence blocked.",
+            output_type=Finding,
+            model=demo_model([assistant_message(fixture.model_dump_json())]),
+        )
+        result = await Runner.run(
+            agent, fixture.evidence, max_turns=3, run_config=run_config()
+        )
+        findings.append(result.final_output_as(Finding))
+    decision = "escalate" if any(f.blocked for f in findings) else "continue"
+    print(f"OK: decision={decision} sources={[f.source for f in findings]}")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

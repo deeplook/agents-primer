@@ -1,29 +1,33 @@
-"""Stop queued workflow steps when the remaining time budget is gone."""
+"""An asyncio deadline cancels an SDK run, including its in-flight model wait."""
+
+import asyncio
+
+from _shared import demo_model, live, run_config
+from agents import Agent, Runner
+from agents.testing import ModelCall, ModelStep
 
 
-def run_with_time_budget(
-    steps: list[tuple[str, float]], budget: float
-) -> tuple[list[str], str | None]:
-    remaining = budget
-    completed: list[str] = []
-    for name, cost in steps:
-        if cost > remaining:
-            return completed, name
-        remaining -= cost
-        completed.append(name)
-    return completed, None
+async def unavailable(call: ModelCall) -> ModelStep:
+    await asyncio.Event().wait()  # Offline failure injection at the model boundary.
+    raise AssertionError("unreachable")
 
 
-def main() -> None:
-    steps = [
-        ("intake", 0.2),
-        ("research", 0.4),
-        ("draft", 0.4),
-        ("send", 0.3),
-    ]
-    completed, stopped_before = run_with_time_budget(steps, budget=0.7)
-    print(f"OK: completed={completed} stopped_before={stopped_before}")
+async def main() -> None:
+    agent = Agent(
+        name="Researcher",
+        instructions="Explain SQL briefly.",
+        model=demo_model(ModelStep.respond(unavailable)),
+    )
+    budget = 30 if live() else 0.01
+    try:
+        async with asyncio.timeout(budget):
+            result = await Runner.run(
+                agent, "What is SQL?", max_turns=3, run_config=run_config()
+            )
+        print("OK:", result.final_output)
+    except TimeoutError:
+        print(f"OK: SDK run cancelled at deadline={budget}s")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

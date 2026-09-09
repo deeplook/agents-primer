@@ -1,41 +1,38 @@
-"""Specify the narrow execution contract before allowing code to run."""
+"""Configure SDK hosted code execution instead of pretending a path check is a sandbox.
 
-from typing import Literal, TypedDict
+Offline inspects configuration only. --live runs code in the provider's container
+and incurs model plus container charges. No host shell tool is exposed.
+"""
 
+import asyncio
 
-class SandboxConfig(TypedDict):
-    network: Literal["disabled"]
-    filesystem: Literal["temporary workspace only"]
-    timeout_seconds: int
-    allowed_commands: list[str]
-
-
-SANDBOX: SandboxConfig = {
-    "network": "disabled",
-    "filesystem": "temporary workspace only",
-    "timeout_seconds": 10,
-    "allowed_commands": ["python"],
-}
+from _shared import demo_model, live, run_config
+from agents import Agent, CodeInterpreterTool, Runner
 
 
-def allowed_execution(command: str, *, network: bool, path: str) -> bool:
-    executable = command.split()[0]
-    if executable not in SANDBOX["allowed_commands"]:
-        return False
-    if network and SANDBOX["network"] == "disabled":
-        return False
-    temporary_only = SANDBOX["filesystem"] == "temporary workspace only"
-    return not temporary_only or path.startswith("/tmp/")
-
-
-def main() -> None:
-    python_tmp = allowed_execution(
-        "python app.py", network=False, path="/tmp/ws/app.py"
+async def main() -> None:
+    interpreter = CodeInterpreterTool(
+        tool_config={
+            "type": "code_interpreter",
+            "container": {"type": "auto"},
+        }
     )
-    curl = allowed_execution("curl https://example.com", network=True, path="/tmp/ws")
-    home = allowed_execution("python app.py", network=False, path="/Users/ada/secret")
-    print(f"OK: python_tmp={python_tmp} curl={curl} home_write={home}")
+    agent = Agent(
+        name="Calculator",
+        instructions="Use code interpreter to calculate sum(range(100)).",
+        tools=[interpreter],
+        model=demo_model(),
+    )
+    if not live():
+        print(
+            f"OK: SDK hosted tool configured={interpreter.tool_config}; no code executed"
+        )
+        return
+    result = await Runner.run(
+        agent, "Calculate the sum.", max_turns=3, run_config=run_config()
+    )
+    print("OK:", result.final_output)
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

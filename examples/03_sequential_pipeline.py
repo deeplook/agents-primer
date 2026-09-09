@@ -1,23 +1,42 @@
-"""Make the edges explicit when one workflow step feeds the next."""
+"""Feed a typed classifier result into a second SDK agent; Python owns sequencing."""
 
-from _workflow import classify_request
+import asyncio
+from typing import Literal
 
-
-def normalize(text: str) -> str:
-    return " ".join(text.lower().split())
-
-
-def draft(route: str) -> str:
-    return f"Answer: assigned to {route} support."
+from _shared import demo_model, run_config
+from agents import Agent, Runner
+from agents.testing import assistant_message
+from pydantic import BaseModel
 
 
-def main() -> None:
-    raw = "  Please   refund my INVOICE  "
-    normalized = normalize(raw)
-    route = classify_request(normalized)
-    result = draft(route)
-    print(f"OK: {raw!r} -> {normalized!r} -> {route} -> {result}")
+class Route(BaseModel):
+    team: Literal["billing", "technical", "general"]
+
+
+async def main() -> None:
+    classifier = Agent(
+        name="Classifier",
+        instructions="Choose the support team.",
+        output_type=Route,
+        model=demo_model([assistant_message('{"team":"billing"}')]),
+    )
+    classified = await Runner.run(
+        classifier,
+        "My invoice was charged twice.",
+        run_config=run_config(),
+        max_turns=3,
+    )
+    route = classified.final_output_as(Route)
+    writer = Agent(
+        name="Writer",
+        instructions="Draft a brief assignment notice.",
+        model=demo_model([assistant_message("Assigned to billing support.")]),
+    )
+    reply = await Runner.run(
+        writer, f"Chosen team: {route.team}", run_config=run_config(), max_turns=3
+    )
+    print(f"OK: team={route.team} reply={reply.final_output}")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

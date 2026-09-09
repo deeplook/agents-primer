@@ -1,23 +1,54 @@
-"""Give parallel specialists the same scoped brief, not unrelated fragments."""
+"""Two SDK agents read the same immutable local context through typed tools."""
+
+import asyncio
+from dataclasses import dataclass
+
+from _shared import demo_model, run_config
+from agents import Agent, RunContextWrapper, Runner, function_tool
+from agents.testing import assistant_message, function_call
 
 
-def consistent(left: dict[str, str], right: dict[str, str], keys: set[str]) -> bool:
-    return all(left.get(key) == right.get(key) for key in keys)
+@dataclass(frozen=True)
+class Brief:
+    account: str
+    issue: str
+    policy_version: str
 
 
-def main() -> None:
-    brief = {"account": "Ada", "issue": "duplicate charge", "policy_version": "2026-01"}
-    billing_context = {**brief, "task": "verify charge"}
-    policy_context = {**brief, "task": "check refund rule"}
-    fragmented_billing = {"account": "Ada", "task": "verify charge"}
-    fragmented_policy = {"issue": "duplicate charge", "task": "check refund rule"}
-    shared_keys = {"account", "issue", "policy_version"}
-    print(
-        "OK: "
-        f"shared={consistent(billing_context, policy_context, shared_keys)} "
-        f"fragmented={consistent(fragmented_billing, fragmented_policy, shared_keys)}"
+@function_tool
+def read_brief(ctx: RunContextWrapper[Brief]) -> str:
+    """Read the shared brief; local context is not automatically a model prompt."""
+    return f"{ctx.context.account}: {ctx.context.issue}; policy={ctx.context.policy_version}"
+
+
+async def main() -> None:
+    brief = Brief("Ada", "duplicate charge", "2026-01")
+    agents = [
+        Agent[Brief](
+            name=name,
+            instructions="Read the shared brief and report your finding.",
+            tools=[read_brief],
+            model=demo_model(
+                [function_call("read_brief", {}, call_id=f"{name}-brief")],
+                [assistant_message(f"{name}: duplicate charge under policy 2026-01.")],
+            ),
+        )
+        for name in ("Ledger", "Policy")
+    ]
+    results = await asyncio.gather(
+        *[
+            Runner.run(
+                agent,
+                "Review your part.",
+                context=brief,
+                max_turns=3,
+                run_config=run_config(),
+            )
+            for agent in agents
+        ]
     )
+    print(f"OK: shared_context={brief} findings={[r.final_output for r in results]}")
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())

@@ -1,31 +1,44 @@
-"""A terminal graph decision cancels downstream work before it finishes."""
+"""Cancel a running SDK agent while it awaits a tool; verify tool cleanup."""
 
 import asyncio
 
-
-async def issue_refund(started: asyncio.Event, released: asyncio.Event) -> str:
-    started.set()
-    await released.wait()
-    return "refund issued"
+from _shared import demo_model, run_config
+from agents import Agent, Runner, function_tool
+from agents.testing import function_call
 
 
 async def main() -> None:
-    account_closed = True
-    started = asyncio.Event()
-    released = asyncio.Event()
-    task = asyncio.create_task(issue_refund(started, released))
-    await started.wait()
-    if account_closed:
+    started, cleaned = asyncio.Event(), asyncio.Event()
+
+    @function_tool
+    async def slow_lookup() -> str:
+        """Wait for an unavailable dependency (injected in both modes)."""
+        started.set()
+        try:
+            await asyncio.Event().wait()
+        finally:
+            cleaned.set()
+        return "unreachable"
+
+    agent = Agent(
+        name="Lookup",
+        instructions="Call slow_lookup.",
+        tools=[slow_lookup],
+        model=demo_model([function_call("slow_lookup", {}, call_id="slow-1")]),
+    )
+    task = asyncio.create_task(
+        Runner.run(agent, "Look up order 42.", run_config=run_config(), max_turns=3)
+    )
+    try:
+        await asyncio.wait_for(started.wait(), timeout=30)
+    finally:
         task.cancel()
-        cancelled = False
         try:
             await task
         except asyncio.CancelledError:
-            cancelled = True
-        print(f"OK: next_node=stop cancelled={cancelled} released={released.is_set()}")
-        return
-    released.set()
-    print("OK:", await task)
+            pass
+    assert cleaned.is_set()
+    print("OK: SDK run cancelled; tool finally block completed")
 
 
 if __name__ == "__main__":
