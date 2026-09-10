@@ -12,8 +12,8 @@ API capabilities; this one focuses on control flow around agent calls.
 The SDK's core objects are `Agent` (instructions, model, tools, and handoffs)
 and `Runner` (model turns, tool execution, handoffs, and interruptions). The
 lessons use SDK context, typed outputs, guardrails, approvals, `RunState`,
-lifecycle hooks, tracing, and MCP directly. Python supplies scheduling and
-application policies around those SDK calls.
+lifecycle hooks, tracing, sessions, and MCP directly. Python supplies scheduling
+and application policies around those SDK calls.
 
 **Offline does not mean skipping the SDK.** Model-running examples always use
 the real `Runner`. By default, the SDK's `ScriptedModel` supplies responses and
@@ -93,6 +93,7 @@ The locked environment uses Agents SDK 0.22, including `agents.testing`, and MCP
 | `43_dependency_scheduling.py` | Run ready agent tasks in waves with parent results |
 | `44_replanning.py` | Replace failed work without replaying completed actions |
 | `45_approval_resume.py` | Supporting Python: transactional approval ledger across processes |
+| `46_session_memory.py` | SDK session automatically carries history between Runner.run calls |
 
 ## Concise orchestration examples
 
