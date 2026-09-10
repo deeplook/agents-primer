@@ -172,6 +172,26 @@ All live targets require `OPENAI_API_KEY` and stop on the first failing process.
 They are smoke runs; example `38` additionally asserts routing accuracy. Offline
 tests verify SDK mechanics, not the quality or reliability of a live model.
 
+## Not covered
+
+This primer focuses on deterministic, offline-testable control flow around
+`Runner.run`. A few SDK concepts fall outside that scope and have no lesson
+here:
+
+- **Sandbox agents** — agents preconfigured against a persistent container for
+  long-horizon autonomous work. `41_sandbox_boundary.py` configures
+  `CodeInterpreterTool`, which is hosted code execution invoked as a single
+  tool call, not a standing container an agent operates over multiple turns.
+- **Realtime agents** — voice agents built on `gpt-realtime` and the Realtime
+  API. This repo's model turns are all text, request/response.
+- **Voice agents** — pipelines that chain speech-to-text, an agent workflow,
+  and text-to-speech. Audio I/O is orthogonal to the workflow patterns this
+  primer teaches and isn't exercised by any lesson.
+
+If you need these, see the SDK's own realtime and voice guides; the control-flow
+patterns in this primer (guardrails, handoffs, approval, sessions) still apply
+once a text-based agent turn is involved.
+
 ## Further reading
 
 - [OpenAI Agents SDK guide](https://developers.openai.com/api/docs/guides/agents)

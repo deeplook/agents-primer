@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- Lesson `46_session_memory.py`: an SDK session automatically carries history
+  between `Runner.run` calls.
+- README section documenting the SDK concepts deliberately not covered here
+  (sandbox agents, realtime agents, voice agents), and clarifying that
+  `41_sandbox_boundary.py` configures hosted code execution rather than a
+  standing container.
+
+### Changed
+- Updated openai-agents to 0.22.2.
+
 ## [0.2.0] - 2026-09-09
 
 ### Added
