@@ -36,11 +36,11 @@ uv run python examples/01_first_agent.py
 
 # Optional real API calls; these use API credits.
 export OPENAI_API_KEY="..."
-export OPENAI_AGENT_MODEL=gpt-5-nano
+export OPENAI_AGENT_MODEL=gpt-6-luna
 uv run python examples/01_first_agent.py --live
 ```
 
-The default model for live runs is `gpt-5-mini`; override it with
+The default model for live runs is `gpt-6.1-terra`; override it with
 `OPENAI_AGENT_MODEL`. Explicit live runs fail if the API key is missing.
 The locked environment uses Agents SDK 0.22, including `agents.testing`, and MCP 2.
 
@@ -163,9 +163,9 @@ Run `make check-all` for formatting, linting, strict typing, offline SDK behavio
 tests, and smoke execution of all 45 lessons. Offline examples never print `SKIP`.
 
 ```bash
-OPENAI_AGENT_MODEL=gpt-5-nano make live-core           # original five lessons
-OPENAI_AGENT_MODEL=gpt-5-nano make live-orchestration  # seven orchestration lessons
-OPENAI_AGENT_MODEL=gpt-5-nano make live-all            # all model lessons except hosted sandbox
+OPENAI_AGENT_MODEL=gpt-6-luna make live-core           # original five lessons
+OPENAI_AGENT_MODEL=gpt-6-luna make live-orchestration  # seven orchestration lessons
+OPENAI_AGENT_MODEL=gpt-6-luna make live-all            # all model lessons except hosted sandbox
 ```
 
 All live targets require `OPENAI_API_KEY` and stop on the first failing process.

@@ -7,6 +7,31 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 
 
+def test_live_model_default_and_env_override() -> None:
+    environment = os.environ | {"OPENAI_API_KEY": "unused-test-key"}
+    environment.pop("OPENAI_AGENT_MODEL", None)
+    command = [
+        sys.executable,
+        "-c",
+        "from _shared import demo_model; print(demo_model())",
+        "--live",
+    ]
+    for settings, expected in (
+        (environment, "gpt-6.1-terra"),
+        (environment | {"OPENAI_AGENT_MODEL": "gpt-6-luna"}, "gpt-6-luna"),
+    ):
+        result = subprocess.run(
+            command,
+            cwd=ROOT / "examples",
+            env=settings,
+            text=True,
+            capture_output=True,
+            timeout=15,
+            check=True,
+        )
+        assert result.stdout.strip() == expected
+
+
 def test_every_numbered_example_runs_offline() -> None:
     examples = sorted((ROOT / "examples").glob("[0-9][0-9]_*.py"))
     assert len(examples) == 46
