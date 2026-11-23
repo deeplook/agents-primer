@@ -7,7 +7,7 @@ from agents import Model, RunConfig
 from agents.items import TResponseOutputItem
 from agents.testing import ModelStep, ScriptedModel
 
-MODEL = os.environ.get("OPENAI_AGENT_MODEL", "gpt-5-mini")
+MODEL = os.environ.get("OPENAI_AGENT_MODEL", "gpt-6.1-terra")
 
 
 def live() -> bool:
