@@ -196,3 +196,6 @@ once a text-based agent turn is involved.
 
 - [OpenAI Agents SDK guide](https://developers.openai.com/api/docs/guides/agents)
 - [Agents SDK orchestration](https://developers.openai.com/api/docs/guides/agents/orchestration)
+- `evals-primer` measures agents like these: lessons 36–38 here check routing
+  on three fixed cases; there, labelled sets, tested scorers, injection,
+  jailbreaks, pass^k, and guardrail ablation run against an SDK agent.
